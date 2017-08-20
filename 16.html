@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <style>
+        body{
+            margin: 0;
+            overflow: hidden;
+        }
+
+    </style>
+    <script src="../three.js-master/build/three.min.js"></script>
+</head>
+<body>
+
+<div id="container"></div>
+
+<script>
+
+    (function(){
+        var world = {lat:0, lon:0} , state = new Object();
+        var fov = 70, width = window.innerWidth, height = window.innerHeight;
+        var panoPic = "https://aframe.io/aframe/examples/boilerplate/panorama/puydesancy.jpg";
+        // 初始化世界
+        function initWord(fov, width, height){
+            var camera, renderer, scene, light;
+            // 初始化相机
+            camera = new THREE.PerspectiveCamera( fov, width / height, 1, 1100 );
+            camera.target = new THREE.Vector3( 0, 0, 0 );
+            // 初始化渲染器
+            renderer = new THREE.WebGLRenderer({preserveDrawingBuffer:true});
+            renderer.setClearColor(0xEEEEEE, 1.0);
+            renderer.shadowMapEnabled = true;
+            renderer.setSize( width, height );
+            // 初始化场景
+            scene = new THREE.Scene();
+            // 添加自然光源
+            light = new THREE.AmbientLight( 0xffffff ); // soft white light
+            scene.add( light );
+            // 添加到页面
+            document.getElementById("container").appendChild(renderer.domElement);
+            world.camera = camera;
+            world.scene = scene;
+            world.renderer = renderer;
+        }
+        // 添加全景图
+        function addPano(url){
+            THREE.ImageUtils.crossOrigin = '';
+            // 使用全景图片生成纹理
+            THREE.ImageUtils.loadTexture(url, undefined, function(texture){
+                // 设置属性
+                texture.maxFilter = THREE.NearestFilter;
+                texture.minFilter = THREE.NearestFilter;
+                texture.format = THREE.RGBFormat;
+                // 从纹理创建材质
+                var material = new THREE.MeshLambertMaterial({map: texture});
+                // 创建球体，并加入到场景中
+                var mesh = new THREE.Mesh( new THREE.SphereGeometry( 955, 50, 50 ), material );
+                mesh.scale.x = -1;
+                world.scene.add( mesh );
+            })
+        }
+        // 持续刷新摄像头
+        function refreshCamera(){
+            var camera = world.camera;
+            var lat = world.lat;
+            var lon = world.lon;
+            // 控制维度处于－85和85之间
+            lat = Math.max( - 85, Math.min( 85, lat ) );
+            // 计算竖直夹角弧度
+            var phi = THREE.Math.degToRad( 90 - lat );
+            // 计算水平旋转度（弧度）
+            var theta = THREE.Math.degToRad( lon );
+            // 设置相机视角中心点
+            camera.target.x = 500 * Math.sin( phi ) * Math.cos( theta );
+            camera.target.y = 500 * Math.cos( phi );
+            camera.target.z = 500 * Math.sin( phi ) * Math.sin( theta );
+            camera.lookAt( camera.target );
+        }
+
+        function startUserControl(){
+            var elem = document.getElementById("container");
+            // 鼠标按下，开始控制，记录初始位置等信息
+            elem.addEventListener("mousedown", function(e){
+                event.preventDefault();
+                state.isUserInteracting = true;
+                state.mouseInitPositionX = event.clientX;
+                state.mouseInitPositionY = event.clientY;
+                state.mouseInitLon = world.lon;
+                state.mouseInitLat = world.lat;
+                return event;
+            });
+            // 鼠标拖动，根据鼠标位置和初始位置计算视图位置
+            elem.addEventListener("mousemove", function(e){
+                if ( state.isUserInteracting ) {
+                    world.lon = (state.mouseInitPositionX - event.clientX ) * 0.1 + state.mouseInitLon;
+                    world.lat = (event.clientY - state.mouseInitPositionY) * 0.1 + state.mouseInitLat;
+                }
+            });
+            // 鼠标抬起，停止控制
+            elem.addEventListener("mouseup", function(e){
+                state.isUserInteracting = false;
+            })
+        }
+
+        // 持续渲染刷新
+        function anim(){
+            requestAnimationFrame(anim);
+            refreshCamera();
+            world.renderer.render(world.scene, world.camera);
+        }
+        initWord(fov, width, height);
+        addPano(panoPic);
+        startUserControl();
+        anim();
+    })();
+
+</script>
+
+<!--参考：https://www.zhihu.com/people/song-zi-72/posts-->
+
+</body>
+</html>
